@@ -11,8 +11,8 @@
 
 #include "buffer/replacer.h"
 #include "hash/extendible_hash.h"
-
-namespace cmudb {
+#include <list>
+namespace scudb {
 
 template <typename T> class LRUReplacer : public Replacer<T> {
 public:
@@ -31,6 +31,9 @@ public:
 
 private:
   // add your member variables here
+  //使用STL容器，声明List
+  list<T> LRUList;
+
 };
 
-} // namespace cmudb
+} // namespace scudb
