@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <c>
+#include <cassert>
 #include <climits>
 #include <cstdlib>
 #include <string>

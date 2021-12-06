@@ -18,7 +18,6 @@
  * | PageId (4) | NextPageId (4)
  *  ------------------------------
  */
- 
 #pragma once
 #include <utility>
 #include <vector>
@@ -28,8 +27,7 @@
 namespace scudb {
 #define B_PLUS_TREE_LEAF_PAGE_TYPE                                             \
   BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>
-  
-#define BPInternalPage BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>
+
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeLeafPage : public BPlusTreePage {
 

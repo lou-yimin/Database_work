@@ -96,25 +96,25 @@ namespace scudb {
     B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key,
                                            const KeyComparator &comparator) const {
 //二分法查找
-  if (comparator(key, array[1].first) < 0) {
-    return array[0].second;
-  } else if (comparator(key, array[GetSize() - 1].first) >= 0) {
-    return array[GetSize() - 1].second;
-  }
+        if (comparator(key, array[1].first) < 0) {
+            return array[0].second;
+        } else if (comparator(key, array[GetSize() - 1].first) >= 0) {
+            return array[GetSize() - 1].second;
+        }
 
-  int low = 1, high = GetSize() - 1, mid;
-  while (low < high && low + 1 != high) {
-    mid = low + (high - low)/2;
-    if (comparator(key, array[mid].first) < 0) {
-      high = mid;
-    } else if (comparator(key, array[mid].first) > 0) {
-      low = mid;
-    } else {
-      return array[mid].second;
+        int low = 1, high = GetSize() - 1, mid;
+        while (low < high && low + 1 != high) {
+            mid = low + (high - low)/2;
+            if (comparator(key, array[mid].first) < 0) {
+                high = mid;
+            } else if (comparator(key, array[mid].first) > 0) {
+                low = mid;
+            } else {
+                return array[mid].second;
+            }
+        }
+        return array[low].second;
     }
-  }
-  return array[low].second;
-}
 
 /*****************************************************************************
  * INSERTION
@@ -335,106 +335,106 @@ namespace scudb {
  * Remove the last key & value pair from this page to head of "recipient"
  * page, then update relavent key & value pair in its parent page.
  */
-INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *recipient, int parent_index,
+    INDEX_TEMPLATE_ARGUMENTS
+    void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *recipient, int parent_index,
+                                                           BufferPoolManager *buffer_pool_manager) {
+        IncreaseSize(-1);
+        MappingType pair = array[GetSize()];
+        page_id_t child_page_id = pair.second;
+
+        // delegate
+        recipient->CopyFirstFrom(pair, parent_index, buffer_pool_manager);
+
+        // update child parent page id
+        auto *page = buffer_pool_manager->FetchPage(child_page_id);
+        if (page == nullptr) {
+            throw Exception(EXCEPTION_TYPE_INDEX,
+                            "all page are pinned while CopyLastFrom");
+        }
+        auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
+        child->SetParentPageId(recipient->GetPageId());
+
+        assert(child->GetParentPageId() == recipient->GetPageId());
+        buffer_pool_manager->UnpinPage(child->GetPageId(), true);
+    }
+
+    INDEX_TEMPLATE_ARGUMENTS
+    void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(const MappingType &pair, int parent_index,
                                                        BufferPoolManager *buffer_pool_manager) {
-    IncreaseSize(-1);
-    MappingType pair = array[GetSize()];
-    page_id_t child_page_id = pair.second;
+        auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
+        if (page == nullptr) {
+            throw Exception(EXCEPTION_TYPE_INDEX,
+                            "all page are pinned while CopyFirstFrom");
+        }
+        auto parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
 
-    // delegate
-    recipient->CopyFirstFrom(pair, parent_index, buffer_pool_manager);
+        auto key = parent->KeyAt(parent_index);
 
-    // update child parent page id
-    auto *page = buffer_pool_manager->FetchPage(child_page_id);
-    if (page == nullptr) {
-        throw Exception(EXCEPTION_TYPE_INDEX,
-                        "all page are pinned while CopyLastFrom");
+        // set parent key to the last of current page
+        parent->SetKeyAt(parent_index, pair.first);
+
+        InsertNodeAfter(array[0].second, key, array[0].second);
+        array[0].second = pair.second;
+
+        buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
     }
-    auto child = reinterpret_cast<BPlusTreePage *>(page->GetData());
-    child->SetParentPageId(recipient->GetPageId());
-
-    assert(child->GetParentPageId() == recipient->GetPageId());
-    buffer_pool_manager->UnpinPage(child->GetPageId(), true);
-}
-
-INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(const MappingType &pair, int parent_index,
-                                                   BufferPoolManager *buffer_pool_manager) {
-    auto *page = buffer_pool_manager->FetchPage(GetParentPageId());
-    if (page == nullptr) {
-        throw Exception(EXCEPTION_TYPE_INDEX,
-                        "all page are pinned while CopyFirstFrom");
-    }
-    auto parent = reinterpret_cast<BPlusTreeInternalPage *>(page->GetData());
-
-    auto key = parent->KeyAt(parent_index);
-
-    // set parent key to the last of current page
-    parent->SetKeyAt(parent_index, pair.first);
-
-    InsertNodeAfter(array[0].second, key, array[0].second);
-    array[0].second = pair.second;
-
-    buffer_pool_manager->UnpinPage(parent->GetPageId(), true);
-}
 
 /*****************************************************************************
  * DEBUG
  *****************************************************************************/
-INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::QueueUpChildren(//不需要修改
-        std::queue<BPlusTreePage *> *queue,
-        BufferPoolManager *buffer_pool_manager) {
-    for (int i = 0; i < GetSize(); i++) {
-        auto *page = buffer_pool_manager->FetchPage(array[i].second);
-        if (page == nullptr)
-            throw Exception(EXCEPTION_TYPE_INDEX,
-                            "all page are pinned while printing");
-        BPlusTreePage *node =
-                reinterpret_cast<BPlusTreePage *>(page->GetData());
-        queue->push(node);
-    }
-}
-
-INDEX_TEMPLATE_ARGUMENTS
-std::string B_PLUS_TREE_INTERNAL_PAGE_TYPE::ToString(bool verbose) const {
-    if (GetSize() == 0) {
-        return "";
-    }
-    std::ostringstream os;
-    if (verbose) {
-        os << "[pageId: " << GetPageId() << " parentId: " << GetParentPageId()
-           << "]<" << GetSize() << "> ";
-    }
-
-    int entry = verbose ? 0 : 1;
-    int end = GetSize();
-    bool first = true;
-    while (entry < end) {
-        if (first) {
-            first = false;
-        } else {
-            os << " ";
+    INDEX_TEMPLATE_ARGUMENTS
+    void B_PLUS_TREE_INTERNAL_PAGE_TYPE::QueueUpChildren(//不需要修改
+            std::queue<BPlusTreePage *> *queue,
+            BufferPoolManager *buffer_pool_manager) {
+        for (int i = 0; i < GetSize(); i++) {
+            auto *page = buffer_pool_manager->FetchPage(array[i].second);
+            if (page == nullptr)
+                throw Exception(EXCEPTION_TYPE_INDEX,
+                                "all page are pinned while printing");
+            BPlusTreePage *node =
+                    reinterpret_cast<BPlusTreePage *>(page->GetData());
+            queue->push(node);
         }
-        os << std::dec << array[entry].first.ToString();
+    }
+
+    INDEX_TEMPLATE_ARGUMENTS
+    std::string B_PLUS_TREE_INTERNAL_PAGE_TYPE::ToString(bool verbose) const {
+        if (GetSize() == 0) {
+            return "";
+        }
+        std::ostringstream os;
         if (verbose) {
-            os << "(" << array[entry].second << ")";
+            os << "[pageId: " << GetPageId() << " parentId: " << GetParentPageId()
+               << "]<" << GetSize() << "> ";
         }
-        ++entry;
+
+        int entry = verbose ? 0 : 1;
+        int end = GetSize();
+        bool first = true;
+        while (entry < end) {
+            if (first) {
+                first = false;
+            } else {
+                os << " ";
+            }
+            os << std::dec << array[entry].first.ToString();
+            if (verbose) {
+                os << "(" << array[entry].second << ")";
+            }
+            ++entry;
+        }
+        return os.str();
     }
-    return os.str();
-}
 
 // valuetype for internalNode should be page id_t
-template class BPlusTreeInternalPage<GenericKey<4>, page_id_t,
-GenericComparator<4>>;
-template class BPlusTreeInternalPage<GenericKey<8>, page_id_t,
-GenericComparator<8>>;
-template class BPlusTreeInternalPage<GenericKey<16>, page_id_t,
-GenericComparator<16>>;
-template class BPlusTreeInternalPage<GenericKey<32>, page_id_t,
-GenericComparator<32>>;
-template class BPlusTreeInternalPage<GenericKey<64>, page_id_t,
-GenericComparator<64>>;
+    template class BPlusTreeInternalPage<GenericKey<4>, page_id_t,
+            GenericComparator<4>>;
+    template class BPlusTreeInternalPage<GenericKey<8>, page_id_t,
+            GenericComparator<8>>;
+    template class BPlusTreeInternalPage<GenericKey<16>, page_id_t,
+            GenericComparator<16>>;
+    template class BPlusTreeInternalPage<GenericKey<32>, page_id_t,
+            GenericComparator<32>>;
+    template class BPlusTreeInternalPage<GenericKey<64>, page_id_t,
+            GenericComparator<64>>;
 } // namespace scudb
