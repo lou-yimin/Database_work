@@ -12,11 +12,32 @@ namespace scudb {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() {}
+INDEXITERATOR_TYPE::IndexIterator(B_PLUS_TREE_LEAF_PAGE_TYPE *leaf, int index, BufferPoolManager *bmp)
+    :leaf_(leaf), index_(index), bmp_(bmp) {}
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() {}
+INDEXITERATOR_TYPE::~IndexIterator() 
+{
 
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+bool INDEXITERATOR_TYPE::isEnd()
+{
+
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+const MappingType INDEXITERATOR_TYPE::operator*()
+{
+
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+const MappingType INDEXITERATOR_TYPE::operator++()
+{
+
+}
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 template class IndexIterator<GenericKey<8>, RID, GenericComparator<8>>;
 template class IndexIterator<GenericKey<16>, RID, GenericComparator<16>>;
